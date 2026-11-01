@@ -84,7 +84,36 @@ app.get('/admin',(req,res)=>{ if(!req.session.admin)return res.redirect('/admin/
  const body=`<div class="dashboardstats"><div><b>${all.length}</b><span>মোট সংবাদ</span></div><div><b>${all.filter(a=>a.status==='published').length}</b><span>প্রকাশিত</span></div><div><b>${all.filter(a=>a.status!=='published').length}</b><span>খসড়া</span></div></div><div class="panel"><div class="paneltop"><h2>সংবাদ ব্যবস্থাপনা</h2><a class="button" href="/admin/new">+ নতুন সংবাদ</a></div>${all.length?`<div class="tablewrap"><table><thead><tr><th>শিরোনাম</th><th>বিভাগ</th><th>অবস্থা</th><th>তারিখ</th><th>কাজ</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">এখনো কোনো সংবাদ নেই। “নতুন সংবাদ” বাটনে চাপ দিয়ে শুরু করুন।</div>'}</div>`;
  res.send(adminShell('অ্যাডমিন ড্যাশবোর্ড',body)); });
 app.get('/admin/login',(req,res)=>{ if(req.session.admin)return res.redirect('/admin'); const body=`<section class="loginbox"><h1>অ্যাডমিন লগইন</h1><p>Doel News 24-এর সংবাদ ব্যবস্থাপনায় প্রবেশ করুন।</p>${req.query.error?'<div class="error">ইউজারনেম বা পাসওয়ার্ড সঠিক নয়।</div>':''}<form method="post" action="/admin/login"><label>ইউজারনেম<input name="username" required autocomplete="username"></label><label>পাসওয়ার্ড<input name="password" type="password" required autocomplete="current-password"></label><button class="button full">লগইন করুন</button></form><small>প্রথমবার চালুর আগে .env ফাইলে নিজের ইউজারনেম ও শক্তিশালী পাসওয়ার্ড সেট করুন।</small></section>`;res.send(layout('অ্যাডমিন লগইন',body,true)); });
-app.post('/admin/login',(req,res)=>{const u=process.env.ADMIN_USERNAME||'admin',p=process.env.ADMIN_PASSWORD||'ChangeMe123!'; if(req.body.username===u && req.body.password===p){req.session.regenerate(err=>{if(err)return res.status(500).send('Session error');req.session.admin=true;res.redirect('/admin');});}else res.redirect('/admin/login?error=1');});
+app.post('/admin/login', (req, res) => {
+  const u = process.env.ADMIN_USERNAME;
+  const p = process.env.ADMIN_PASSWORD;
+
+  if (!u || !p) {
+    return res.status(500).send('Admin username or password is not configured.');
+  }
+
+  if (req.body.username !== u || req.body.password !== p) {
+    return res.redirect('/admin/login?error=1');
+  }
+
+  req.session.regenerate((err) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).send('Session error');
+    }
+
+    req.session.admin = true;
+
+    req.session.save((saveErr) => {
+      if (saveErr) {
+        console.error(saveErr);
+        return res.status(500).send('Session save error');
+      }
+
+      return res.redirect('/admin');
+    });
+  });
+});
 app.post('/admin/logout',isAdmin,(req,res)=>req.session.destroy(()=>res.redirect('/admin/login')));
 function formPage(a={}) { return `<div class="panel formpanel"><form method="post" enctype="multipart/form-data" action="${a.id?'/admin/edit/'+a.id:'/admin/new'}"><label>সংবাদের শিরোনাম *<input name="title" required maxlength="180" value="${esc(a.title||'')}"></label><label>বিভাগ<select name="category">${categories.map(c=>`<option ${a.category===c?'selected':''}>${c}</option>`).join('')}</select></label><label>সংক্ষিপ্ত বিবরণ<textarea name="summary" rows="3" maxlength="500">${esc(a.summary||'')}</textarea></label><label>বিস্তারিত সংবাদ *<textarea name="body" rows="10" required>${esc(a.body||'')}</textarea></label><label>সংবাদের ছবি (JPG/PNG/WEBP/GIF, সর্বোচ্চ ৫ MB)<input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif"></label>${a.image?`<div class="currentimage">বর্তমান ছবি<br><img src="${esc(a.image)}" alt=""></div>`:''}<label>প্রকাশের অবস্থা<select name="status"><option value="published" ${a.status==='published'?'selected':''}>এখনই প্রকাশ করুন</option><option value="draft" ${a.status==='draft'?'selected':''}>খসড়া হিসেবে রাখুন</option></select></label><div class="formactions"><button class="button">সংরক্ষণ করুন</button><a class="button light" href="/admin">বাতিল</a></div></form></div>`; }
 app.get('/admin/new',isAdmin,(req,res)=>res.send(adminShell('নতুন সংবাদ',formPage({status:'published'}))));
