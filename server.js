@@ -21,6 +21,7 @@ app.disable('x-powered-by');
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.use(express.json({ limit: '1mb' }));
+app.set('trust proxy', 1);
 app.use(session({
   name: 'doel.sid',
   secret: process.env.SESSION_SECRET || 'development-only-change-this-secret',
